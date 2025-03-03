@@ -168,7 +168,7 @@ class YandexGPT(YandexGPTBase):
         config_manager : Union[YandexGPTConfigManagerBase, Dict[str, Any]]
             Config manager or a dictionary containing:
             1) completion_request_model_type_uri_field
-               ("gpt://{self.config_manager.catalog_id}/{self.config_manager.model_type}/latest")
+               ("gpt://{self.config_manager.catalog_id}/{self.config_manager.model_type}/{self.config_manager.model_seg}")
             2) completion_request_catalog_id_field (self.config_manager.catalog_id)
             3) completion_request_authorization_field ("Bearer {iam_token}" or "Api-Key {api_key}")
         """

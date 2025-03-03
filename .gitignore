@@ -4,6 +4,9 @@ venv
 # IDE Settings
 .idea
 
+# IDE Settings
+.history
+
 # Jupyter Notebooks
 notebooks
 *.ipynb_checkpoints

@@ -18,6 +18,15 @@ available_models: List[str] = [
     ]
 
 
+# List of available YaGPT model segments to use (May be needs to be moved to config file in the future)
+model_segments: List[str] = [
+        "deprecated",
+        "latest",
+        "rc"
+    ]
+
+
+
 class YandexGPTConfigManagerBase:
     """
     Base class for YaGPT configuration management. It handles configurations related to model type, catalog ID, IAM
@@ -27,6 +36,8 @@ class YandexGPTConfigManagerBase:
     ----------
     model_type : Optional[str]
         The model type to use. Supported values include 'yandexgpt', 'yandexgpt-lite', 'summarization'.
+    model_seg : Optional[str]
+        The model branch to use. Supported values include 'deprecated', 'latest', 'rc'.
     catalog_id : Optional[str]
         The Catalog ID on YandexCloud to be used.
     iam_token : Optional[str]
@@ -40,6 +51,7 @@ class YandexGPTConfigManagerBase:
     def __init__(
             self,
             model_type: Optional[str] = None,
+            model_seg: Optional[str] = None,
             catalog_id: Optional[str] = None,
             iam_token: Optional[str] = None,
             api_key: Optional[str] = None,
@@ -51,6 +63,8 @@ class YandexGPTConfigManagerBase:
         ----------
         model_type : Optional[str], optional
             Model type to use.
+        model_seg : Optional[str], optional
+            Model branch to use.
         catalog_id : Optional[str], optional
             Catalog ID on YandexCloud to use.
         iam_token : Optional[str], optional
@@ -59,6 +73,7 @@ class YandexGPTConfigManagerBase:
             API key for authorization.
         """
         self.model_type: Optional[str] = model_type
+        self.model_seg: Optional[str] = model_seg
         self.catalog_id: Optional[str] = catalog_id
         self.iam_token: Optional[str] = iam_token
         self.api_key: Optional[str] = api_key
@@ -124,14 +139,19 @@ class YandexGPTConfigManagerBase:
             The model type URI field for the completion request header in the URI format.
         """
         global available_models
+        global model_segments
 
         # Checking if model_type is in available_models
         if self.model_type not in available_models:
             raise ValueError(f"Model type {self.model_type} is not supported. Supported values: {available_models}")
 
+        # Checking if model_type is in available_models
+        if self.model_seg not in model_segments:
+            raise ValueError(f"Model type {self.model_seg} is not supported. Supported values: {model_segments}")
+
         # Checking if model_type and catalog_id are set and returning the model type URI field string
         if self.model_type and self.catalog_id:
-            return f"gpt://{self.catalog_id}/{self.model_type}/latest"
+            return f"gpt://{self.catalog_id}/{self.model_type}/{self.model_seg}"
         else:
             raise ValueError("Model type or catalog ID is not set")
 
@@ -147,6 +167,8 @@ class YandexGPTConfigManagerForAPIKey(YandexGPTConfigManagerBase):
     ----------
     model_type : Optional[str]
         The model type to use. Supported values include 'yandexgpt', 'yandexgpt-lite', 'summarization'.
+    model_seg : Optional[str]
+        The model branch to use. Supported values include 'deprecated', 'latest', 'rc'.
     catalog_id : Optional[str]
         The Catalog ID on YandexCloud to be used.
     api_key : Optional[str]
@@ -156,6 +178,7 @@ class YandexGPTConfigManagerForAPIKey(YandexGPTConfigManagerBase):
     def __init__(
             self,
             model_type: Optional[str] = None,
+            model_seg: Optional[str] = None,
             catalog_id: Optional[str] = None,
             api_key: Optional[str] = None,
     ) -> None:
@@ -166,6 +189,8 @@ class YandexGPTConfigManagerForAPIKey(YandexGPTConfigManagerBase):
         ----------
         model_type : Optional[str], optional
             Model type to use.
+        model_seg : Optional[str], optional
+            Model branch to use.
         catalog_id : Optional[str], optional
             Catalog ID on YandexCloud to use.
         api_key : Optional[str], optional
@@ -174,6 +199,7 @@ class YandexGPTConfigManagerForAPIKey(YandexGPTConfigManagerBase):
         # Setting model type, catalog ID and API key from the constructor
         super().__init__(
             model_type=model_type,
+            model_seg=model_seg,
             catalog_id=catalog_id,
             api_key=api_key
         )
@@ -189,6 +215,7 @@ class YandexGPTConfigManagerForAPIKey(YandexGPTConfigManagerBase):
         Sets configuration parameters from environment variables if they are not provided in the constructor.
         """
         self.model_type = os.environ.get("YANDEX_GPT_MODEL_TYPE", self.model_type)
+        self.model_seg = os.environ.get("YANDEX_GPT_MODEL_SEG", self.model_seg)
         self.catalog_id = os.environ.get("YANDEX_GPT_CATALOG_ID", self.catalog_id)
         self.api_key = os.environ.get("YANDEX_GPT_API_KEY", self.api_key)
 
@@ -199,6 +226,11 @@ class YandexGPTConfigManagerForAPIKey(YandexGPTConfigManagerBase):
         if not self.model_type:
             raise ValueError(
                 "Model type is not set. You can ether provide it in the constructor or set in YANDEX_GPT_MODEL_TYPE "
+                "environment variable"
+            )
+        elif not self.model_seg:
+            raise ValueError(
+                "Model segment is not set. You can ether provide it in the constructor or set in YANDEX_GPT_MODEL_SEG "
                 "environment variable"
             )
         elif not self.catalog_id:
@@ -229,6 +261,8 @@ class YandexGPTConfigManagerForIAMToken(YandexGPTConfigManagerBase):
     ----------
     model_type : Optional[str]
         The model type to use. Supported values include 'yandexgpt', 'yandexgpt-lite', 'summarization'.
+    model_seg : Optional[str]
+        The model branch to use. Supported values include 'deprecated', 'latest', 'rc'.
     catalog_id : Optional[str]
         The Catalog ID on YandexCloud to be used.
     iam_token : Optional[str]
@@ -238,6 +272,7 @@ class YandexGPTConfigManagerForIAMToken(YandexGPTConfigManagerBase):
     def __init__(
             self,
             model_type: Optional[str] = None,
+            model_seg: Optional[str] = None,
             catalog_id: Optional[str] = None,
             iam_token: Optional[str] = None,
     ) -> None:
@@ -248,6 +283,8 @@ class YandexGPTConfigManagerForIAMToken(YandexGPTConfigManagerBase):
         ----------
         model_type : Optional[str], optional
             Model type to use.
+        model_seg : Optional[str], optional
+            Model branch to use.
         catalog_id : Optional[str], optional
             Catalog ID on YandexCloud to use.
         iam_token : Optional[str], optional
@@ -256,6 +293,7 @@ class YandexGPTConfigManagerForIAMToken(YandexGPTConfigManagerBase):
         # Setting model type, catalog ID and IAM token from the constructor
         super().__init__(
             model_type=model_type,
+            model_seg=model_seg,
             catalog_id=catalog_id,
             iam_token=iam_token
         )
@@ -283,6 +321,7 @@ class YandexGPTConfigManagerForIAMToken(YandexGPTConfigManagerBase):
         if not directly provided.
         """
         self.model_type = os.environ.get("YANDEX_GPT_MODEL_TYPE", self.model_type)
+        self.model_seg = os.environ.get("YANDEX_GPT_MODEL_SEG", self.model_seg)
         self.catalog_id = os.environ.get("YANDEX_GPT_CATALOG_ID", self.catalog_id)
         self.iam_token = os.environ.get("YANDEX_GPT_IAM_TOKEN", self.iam_token)
 
@@ -404,6 +443,11 @@ class YandexGPTConfigManagerForIAMToken(YandexGPTConfigManagerBase):
         if not self.model_type:
             raise ValueError(
                 "Model type is not set. You can ether provide it in the constructor or set in YANDEX_GPT_MODEL_TYPE "
+                "environment variable"
+            )
+        if not self.model_seg:
+            raise ValueError(
+                "Model segment is not set. You can ether provide it in the constructor or set in YANDEX_GPT_MODEL_SEG "
                 "environment variable"
             )
         elif not self.catalog_id:
