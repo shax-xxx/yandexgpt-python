@@ -18,6 +18,10 @@ class YandexGPTMessage(TypedDict):
     text: str
 
 
+class YandexGPTTool(TypedDict):
+    function: Dict[str, Any]
+
+
 class YandexGPTBase:
     """
     This class is used to interact with the Yandex GPT API, providing asynchronous and synchronous methods to send
@@ -46,7 +50,7 @@ class YandexGPTBase:
         headers : Dict[str, str]
             Dictionary containing the authorization token (IAM), content type, and x-folder-id (YandexCloud catalog ID).
         payload : Dict[str, Any]
-            Dictionary with the model URI, completion options, and messages.
+            Dictionary with the model URI, completion options, messages, and optionally tools.
         completion_url : str
             URL of the completion API.
 
@@ -125,7 +129,7 @@ class YandexGPTBase:
         headers : Dict[str, str]
             Dictionary containing the authorization token (IAM), content type, and x-folder-id (YandexCloud catalog ID).
         payload : Dict[str, Any]
-            Dictionary with the model URI, completion options, and messages.
+            Dictionary with the model URI, completion options, messages, and optionally tools.
         completion_url : str
             URL of the completion API.
 
@@ -148,12 +152,13 @@ class YandexGPT(YandexGPTBase):
     """
     Extends the YandexGPTBase class to interact with the Yandex GPT API using a simplified configuration manager.
     This class allows for easier configuration of API requests and includes both synchronous and asynchronous methods.
+    Supports sending messages and optional tools for function calling.
 
     Methods
     -------
-    get_async_completion(messages, temperature, max_tokens, stream, completion_url, timeout) -> str
+    get_async_completion(messages, temperature, max_tokens, stream, tools, completion_url, timeout) -> Dict[str, Any]
         Asynchronously sends a completion request to the Yandex GPT API and returns the completion result.
-    get_sync_completion(messages, temperature, max_tokens, stream, completion_url) -> str
+    get_sync_completion(messages, temperature, max_tokens, stream, tools, completion_url) -> Dict[str, Any]
         Synchronously sends a completion request to the Yandex GPT API and returns the completion result.
     """
     def __init__(
@@ -194,7 +199,8 @@ class YandexGPT(YandexGPTBase):
             messages: Union[List[YandexGPTMessage], List[Dict[str, str]]],
             temperature: float = 0.6,
             max_tokens: int = 1000,
-            stream: bool = False
+            stream: bool = False,
+            tools: Union[List[YandexGPTTool], List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Creates the payload for sending a completion request.
@@ -209,13 +215,15 @@ class YandexGPT(YandexGPTBase):
             Maximum number of tokens to generate.
         stream : bool
             Stream option for the API, currently not supported in this implementation.
+        tools : Union[List[YandexGPTTool], List[Dict[str, Any]]], optional
+            List of tools (functions) to be made available to the model for function calling.
 
         Returns
         -------
         Dict[str, Any]
-            Dictionary containing the model URI, completion options, and messages.
+            Dictionary containing the model URI, completion options, messages, and optionally tools.
         """
-        return {
+        payload = {
             "modelUri": self.config_manager.completion_request_model_type_uri_field,
             "completionOptions": {
                 "stream": stream,
@@ -224,6 +232,10 @@ class YandexGPT(YandexGPTBase):
             },
             "messages": messages
         }
+        # Add tools to payload only if provided
+        if tools is not None:
+            payload["tools"] = tools
+        return payload
 
     async def get_async_completion(
             self,
@@ -231,9 +243,10 @@ class YandexGPT(YandexGPTBase):
             temperature: float = 0.6,
             max_tokens: int = 1000,
             stream: bool = False,
+            tools: Union[List[YandexGPTTool], List[Dict[str, Any]]] = None,
             completion_url: str = "https://llm.api.cloud.yandex.net/foundationModels/v1/completionAsync",
             timeout: int = 5
-    ) -> str:
+    ) -> Dict[str, Any]:
         """
         Sends an asynchronous completion request to the Yandex GPT API and polls for the result.
 
@@ -247,6 +260,8 @@ class YandexGPT(YandexGPTBase):
             Maximum number of tokens to generate.
         stream : bool
             Indicates whether streaming is enabled; currently not supported in this implementation.
+        tools : Union[List[YandexGPTTool], List[Dict[str, Any]]], optional
+            List of tools (functions) to be made available to the model for function calling.
         completion_url : str
             URL to the Yandex GPT asynchronous completion API.
         timeout : int
@@ -254,8 +269,8 @@ class YandexGPT(YandexGPTBase):
 
         Returns
         -------
-        str
-            The text of the completion result.
+        Dict[str, Any]
+            The first alternative from the completion result, including message (text or tool calls) and status.
 
         Raises
         ------
@@ -268,7 +283,8 @@ class YandexGPT(YandexGPTBase):
             messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,
-            stream=stream
+            stream=stream,
+            tools=tools
         )
 
         completion_request_id: str = await self.send_async_completion_request(
@@ -284,12 +300,12 @@ class YandexGPT(YandexGPTBase):
             timeout=timeout
         )
 
-        # If the request was successful, return the completion result
+        # If the request was successful, return the first alternative
         # Otherwise, raise an exception
         if completion_response.get('error', None):
             raise Exception(f"Failed to get completion: {completion_response['error']}")
         else:
-            return completion_response['response']['alternatives'][0]['message']['text']
+            return completion_response['response']['alternatives'][0]
 
     def get_sync_completion(
             self,
@@ -297,8 +313,9 @@ class YandexGPT(YandexGPTBase):
             temperature: float = 0.6,
             max_tokens: int = 1000,
             stream: bool = False,
+            tools: Union[List[YandexGPTTool], List[Dict[str, Any]]] = None,
             completion_url: str = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion",
-    ):
+    ) -> Dict[str, Any]:
         """
         Sends a synchronous completion request to the Yandex GPT API and returns the result.
 
@@ -312,13 +329,15 @@ class YandexGPT(YandexGPTBase):
             Maximum number of tokens to generate.
         stream : bool
             Indicates whether streaming is enabled; currently not supported in this implementation.
+        tools : Union[List[YandexGPTTool], List[Dict[str, Any]]], optional
+            List of tools (functions) to be made available to the model for function calling.
         completion_url : str
             URL to the Yandex GPT synchronous completion API.
 
         Returns
         -------
-        str
-            The text of the completion result.
+        Dict[str, Any]
+            The first alternative from the completion result, including message (text or tool calls) and status.
 
         Raises
         ------
@@ -331,7 +350,8 @@ class YandexGPT(YandexGPTBase):
             messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,
-            stream=stream
+            stream=stream,
+            tools=tools
         )
 
         completion_response: Dict[str, Any] = self.send_sync_completion_request(
@@ -340,9 +360,9 @@ class YandexGPT(YandexGPTBase):
             completion_url=completion_url
         )
 
-        # If the request was successful, return the completion result
+        # If the request was successful, return the first alternative
         # Otherwise, raise an exception
         if completion_response.get('error', None):
             raise Exception(f"Failed to get completion: {completion_response['error']}")
         else:
-            return completion_response['result']['alternatives'][0]['message']['text']
+            return completion_response['result']['alternatives'][0]
